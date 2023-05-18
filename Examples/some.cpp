@@ -5,32 +5,43 @@
 
 int main(){
 
-    some::Init(some::CLEAR_TYPE::Line, "index.txt");
+    some::Init(some::CLEAR_TYPE::Line, "positional.txt");
     
     std::thread t1 = std::thread([](){
-        for ( int i = 0 ; i < 5; i++)
+        int i = 0;
+        while(true)
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1200));
-            some::printfn<2>("%4d  lazy", i);;
+            std::this_thread::sleep_for(std::chrono::milliseconds(600));
+            some::printfn<0>("%4d  lazy", i++);
         }
     });
     std::thread t2 = std::thread([](){
-        for ( int i = 0 ; i < 5; i++)
+        int i = 0;
+        while(true)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            some::printfn<3>("%4d  fast ", i);;
+            some::printfn<1>("%4d  fast ", i++);
         }
     }); 
-
-    for ( int i = 0 ; i < 5; i++)
-    {
-        some::printfn<0>("Hola : %4d", i);
-        some::printn<1>("Que tal");
-
-        some::some::Spin();
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
+    std::thread t3 = std::thread([](){
+        int i = 0;
+        while(true)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            some::printfn<2>("Hola : %4d", i++);
+        }
+    }); 
     
+    auto start = std::chrono::steady_clock::now();
+    while(true)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        some::some::Spin();
+        if(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now()-start).count()>15)
+            break;
+    }
+
+    t3.join();
     t1.join();
     t2.join();
     some::some::DeInit();
