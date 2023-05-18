@@ -5,16 +5,16 @@ include(CTest)
 enable_testing()
 
 
-add_library(some some.cpp)
-target_include_directories(some PUBLIC Thirdparty)
-
-
-
-add_executable(some_test some.cpp )
-target_link_libraries(some_test some pthread)
-target_include_directories(some_test PUBLIC 
+link_libraries(pthread)
+include_directories(PUBLIC 
     ${CMAKE_SOURCE_DIR}/some 
     ${CMAKE_SOURCE_DIR}/Thirdparty)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+add_executable(positional Examples/some_positional.cpp)
+add_test( NAME positional COMMAND positional )
+add_executable(indexable Examples/some.cpp)
+add_test( NAME Indexable  COMMAND indexable )
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
