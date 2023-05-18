@@ -5,27 +5,26 @@
 
 void Hola()
 {
-    if(std::rand()%2)
-        some::console::Print<3>("No me aburro");
+    if(std::rand()%2 != 0)
+        some::some::Print<3>("No me \n aburro");
     else
-        some::console::Print<3>("Si me aburro");
+        some::some::Print<3>("Si me aburro");
 }
 
 int main(){
 
-    some::console::Init(some::CLEAR_TYPE::Line);
+    some::some::Init(some::CLEAR_TYPE::Line, "hola.txt");
     
     for ( int i = 0 ; i < 5; i++)
     {
         
         Hola();
-        some::printf("Hola : %d", std::rand()%10);
-        some::print("Que tal");
+        some::some::printf("Hola : %d", std::rand()%10);
+        some::some::print("Que tal");
 
         std::this_thread::sleep_for(std::chrono::seconds(1));
-
-
-        some::console::Spin();
+        some::some::Spin();
     }
+    some::some::DeInit();
     return 0;
 }

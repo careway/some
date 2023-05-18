@@ -18,21 +18,22 @@
 #include <stdio.h>
 #define PREV_LINE "\033[F"
 #endif
-namespace some
+
+
+class some
 {
 
-    #define print(str) console::Print(__LINE__,__FILE__,str)
-    #define printf(format, ...) console::Print(__LINE__,__FILE__,format,__VA_ARGS__)
-
-enum class CLEAR_TYPE
-{
-    Line,
-    Console
-};
-
-class console
-{
     public:
+
+    enum class CLEAR_TYPE
+    {
+        Line,
+        Console
+    };
+
+    #define print(str) some::Print(__LINE__,__FILE__,str)
+    #define printf(format, ...) some::Print(__LINE__,__FILE__,format,__VA_ARGS__)
+
 
     static void Init(CLEAR_TYPE type)
     {
@@ -42,52 +43,55 @@ class console
 
     static void Init(CLEAR_TYPE type, std::string file)
     {
+        std::cout << "\033[2J";
         _type = type;
-        _fOut = new std::ofstream(file,std::ios_base::out);
+        _fOut.open(file,std::ios_base::app);
     }
     
     private:
 
     typedef std::map<int, std::string> sentenceMap;
-    typedef std::map<int, int> idxSizeMap;
+    typedef std::map<int, size_t> idxSizeMap;
 
-    
-    static std::stringstream _ss;
-    static CLEAR_TYPE _type;
-    static std::ofstream* _fOut;
+    //Dump to folder
+    static std::ofstream _fOut;
+    static std::string _header;
+
+    //General
+    static CLEAR_TYPE  _type;
     static std::vector<std::future<void>> _tasks;
+    static size_t      _rows;
     static std::mutex  _mtxMap;
     static std::mutex  _mtxVec;
     static sentenceMap _outputStorage;
     static idxSizeMap  _idxSize;
     static std::map<std::pair<int,std::string>,int> _mapIdLine;
-    static int rows;
 
     static void CountRows()
     {
-        std::unique_lock<std::mutex> lck (_mtxMap);
         for( sentenceMap::const_iterator cit=_outputStorage.cbegin(), cend = _outputStorage.cend(); cit != cend; cit++)
         {
-            size_t idx = 0;
-            while( std::string::npos != idx)
+            size_t idx = -1;
+            do
             {
-                idx =  cit->second.find('\n', idx);
-                rows++;
-            }
-            _idxSize[cit->first]=std::max(_idxSize[cit->first],rows);
+                idx =  cit->second.find('\n', idx+1);
+                _rows++;
+            } while( std::string::npos != idx);
+            _idxSize[cit->first]=std::max(_idxSize[cit->first],_rows);
             
         }
     }
 
 
     public: 
-    console()=default;
+    some()=default;
 
     template<int N>
     static void Print(const std::string str)
     {
         std::unique_lock<std::mutex>lck(_mtxMap);
         _outputStorage[N] = str;
+        CountRows();
     }
 
     template<int N,typename ... Args>
@@ -100,7 +104,8 @@ class console
                 std::string ss =  tfm::format(format.c_str(), args...);
                 std::unique_lock<std::mutex>lck(_mtxMap);
                 _outputStorage[N]=ss;
-
+                std::async(std::launch::async,&CountRows);
+                CountRows();
             })
         );
     }
@@ -124,9 +129,10 @@ class console
                     N = _mapIdLine[std::make_pair(line,file)];
                 }
                 _outputStorage[N]= ret;
-
+                CountRows();
             })
         );
+
 
     }
 
@@ -144,9 +150,10 @@ class console
             N = _mapIdLine[std::make_pair(line,file)];
         }
         _outputStorage[N] = str;
+        CountRows();
     }
 
-    static std::string ClearConsole()
+    static std::string ClearOutput()
     {
         std::string ret = "";
         switch(_type)
@@ -158,18 +165,16 @@ class console
             case CLEAR_TYPE::Line:
                 int n = 0;
                 ret = "";
-                for( sentenceMap::const_iterator cit=_outputStorage.cbegin(), cend = _outputStorage.cend(); cit != cend; cit++)
-                {
-                    size_t pose = 0;
-                    do{
+                std::string endl = "";
+                for(idxSizeMap::const_iterator cit = _idxSize.cbegin(), cend = _idxSize.cend(); cit != cend; cit++ )
+                    for(size_t i = 0 ; i < cit->second; i++)
+                    {
                         ret += PREV_LINE;
-                        pose = cit->second.find('\n',pose); 
+                        endl +="\n";
                     }
-                    while(pose != std::string::npos);
-
-                }
-                ret += PREV_LINE;
+                ret = ret + endl + ret;
                 break;
+
         }
         return ret;
     }
@@ -178,7 +183,6 @@ class console
     {
 
         std::stringstream out;
-        // print to console  TODO: More than one line, map indicate positions
         {
             std::unique_lock<std::mutex>lck(_mtxVec);
             for(auto t = _tasks.cbegin(), cend = _tasks.cend(); t != cend; t++)
@@ -190,26 +194,32 @@ class console
         {
             out << cit->second << "\n";   
         }
-        if(erase_prev)
-            _outputStorage.clear();
 
-        std::cout << ClearConsole();
+        if(_fOut.is_open()){
+            _fOut << _header;
+            _fOut << out.str();
+        }
+        std::cout << ClearOutput();
         std::cout << out.str();
-        (*_fOut) << out.str();
-        // log output if pointed
 
+    }
+
+    static void DeInit()
+    {
+        if (_fOut)
+            _fOut.close();
     }
 
 };
 
-std::map<int, std::string> console::_outputStorage = std::map<int,std::string>();
-std::mutex console::_mtxMap, console::_mtxVec;
-std::map<int, int>  console::_idxSize = std::map<int,int>();
-std::map<std::pair<int,std::string>,int> console::_mapIdLine = std::map<std::pair<int,std::string>,int> ();
-std::vector<std::future<void>> console::_tasks = std::vector<std::future<void>>();
-std::ofstream* console::_fOut = nullptr;
-CLEAR_TYPE console::_type = CLEAR_TYPE::Console;
-int console::rows = 0;
+std::map<int, std::string> some::_outputStorage = std::map<int,std::string>();
+std::mutex some::_mtxMap, some::_mtxVec;
+some::idxSizeMap some::_idxSize = some::idxSizeMap();
+std::map<std::pair<int,std::string>,int> some::_mapIdLine = std::map<std::pair<int,std::string>,int> ();
+std::vector<std::future<void>> some::_tasks = std::vector<std::future<void>>();
+std::ofstream some::_fOut = std::ofstream();
+some::CLEAR_TYPE some::_type = some::CLEAR_TYPE::Console;
+size_t some::_rows = 0;
+std::string some::_header= "----------\n";
 
 
-}
