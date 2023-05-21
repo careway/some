@@ -15,6 +15,9 @@ add_executable(positional Examples/some_positional.cpp)
 add_test( NAME positional COMMAND positional )
 add_executable(indexable Examples/some.cpp)
 add_test( NAME Indexable  COMMAND indexable )
+add_executable(cool Examples/cool_stuff.cpp)
+add_test( NAME coool  COMMAND cool )
+
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

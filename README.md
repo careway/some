@@ -32,5 +32,37 @@ Once you have defined the behaviour of some. You can start using it by using the
 
 There are two different examples showing up how both methods can be used, they are not mixed but feel free to mix them as you want:
 
+At this example you can observe how each function is working in different threads but the output keeps consistency, making easy and accessible to print lines with static content that only modifies determined values. 
+
 
 ![](docs/example_output.gif)
+
+
+
+In addition we obtain if pointed an output file with the historic of the values with the frecuency of the spin thread:
+
+```
+----------
+Hola :  875
+   1  fast 
+   0  lazy
+----------
+Hola :  900
+   1  fast                  ############################################
+   0  lazy                  ###                                      ###
+----------                  ###                                      ###
+Hola :  926                 ###         Usefull to look at the       ###
+   1  fast                  ###             output history           ###
+   0  lazy                  ###                                      ###
+----------                  ############################################
+Hola :  951
+   1  fast 
+   0  lazy
+----------
+Hola :  976
+   1  fast 
+   0  lazy
+----------
+```
+
+In this way you can keep a clean output while storing the valuable info.
