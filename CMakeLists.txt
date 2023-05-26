@@ -4,8 +4,9 @@ project(some VERSION 0.1.0)
 include(CTest)
 enable_testing()
 
-
+if(UNIX)
 link_libraries(pthread)
+endif()
 include_directories(PUBLIC 
     ${CMAKE_SOURCE_DIR}/some 
     ${CMAKE_SOURCE_DIR}/Thirdparty)
@@ -15,8 +16,8 @@ add_executable(positional Examples/some_positional.cpp)
 add_test( NAME positional COMMAND positional )
 add_executable(indexable Examples/some.cpp)
 add_test( NAME Indexable  COMMAND indexable )
-add_executable(cool Examples/cool_stuff.cpp)
-add_test( NAME coool  COMMAND cool )
+add_executable(pbar Examples/pbar.cpp)
+add_test( NAME pbar  COMMAND pbar )
 
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})

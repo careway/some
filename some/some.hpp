@@ -300,7 +300,7 @@ class pbar
     {
         _current += (step==-1)?_jumps:step;
         static std::string end_str = "/"+std::to_string(_end);
-        std::string print;
+        std::string print, tail = std::to_string(_current) + "/" + std::to_string(_end);;
         int w, h;
         get_terminal_size(w,h);
         if(w < msg.size())
@@ -321,6 +321,11 @@ class pbar
             w-=_header.size();
             w-=msg.size();
             w-=4;
+            if(w < tail.size()+5)
+                tail = "";
+            else
+                w-=tail.size()+5;
+
             const float n_hash = float(_end-_start)/(float)w;
             int c = (_current-_start)/(float)(n_hash);
             int i = 0;
@@ -338,7 +343,7 @@ class pbar
             {
                 print+=" ";
             }
-            print += "] " + msg;
+            print += "] " + tail + " " + msg;
         }
 
         some::_print(_N,print);
