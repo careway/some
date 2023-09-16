@@ -37,7 +37,7 @@ class some
 
     #define print(str) Print(__LINE__,__FILE__,str)
     #define printf(format, ...) Print(__LINE__,__FILE__,format,__VA_ARGS__)
-
+    #define MakeAllPermanent() MakePermanent(-1)
     static void Init(CLEAR_TYPE type)
     {
         _type = type;
@@ -147,10 +147,12 @@ class some
             for(auto t = _tasks.cbegin(), cend = _tasks.cend(); t != cend; t++)
                 t->wait();
             _tasks.clear();
-        
+            
+            std::unique_lock<std::mutex> lck1 (_mtxMap);
+            _outputStorage.clear();
         }
-        std::unique_lock<std::mutex> lck (_mtxMap);
-        _outputStorage.clear();
+        
+        CountRows();
     }
 
     static void DeInit()
@@ -190,6 +192,7 @@ class some
     static std::mutex  _mtxId;
     static std::map<std::pair<int,std::string>,int> _mapIdLine;
 
+
     static std::string ClearOutput()
     {
         static int ml = 0;
@@ -209,7 +212,7 @@ class some
         for(int i = ml; i< n; i++)
             endl +="\n";
         ret = endl + ret;
-        ml = std::max(ml,n);
+        ml = n;
 
         return ret;
     }
@@ -270,7 +273,7 @@ class some
             } while( std::string::npos != idx);
             
             std::unique_lock<std::mutex> lck (_mtxId);
-            _idxSize[cit->first]=std::max(_idxSize[cit->first],rows);
+            _idxSize[cit->first]=rows;
         }
     }
 
@@ -284,66 +287,106 @@ class some
     }
 
 public:
+    static void MakePermanent(int N)
+    {
+
+        {
+            std::unique_lock<std::mutex> lck (_mtxMap);
+            
+            std::cout << ClearOutput() ;
+            if(N == -1){
+                for(auto c : _outputStorage)
+                    std::cout << c.second << "\n\n"  ;
+                
+                _outputStorage.clear();
+                _idxSize.clear();
+            }
+            else
+            {
+                std::cout << _outputStorage[N] <<  "\n\n" ;
+                _outputStorage.erase(N);
+                _idxSize.erase(N);
+            }
+        }
+        Spin();
+    }
+
 
 class pbar
 {
 
     public:
-    pbar():_start(0),_end(100),_jumps(1),_N(getN())
-    {}
+    pbar():_start(0),_end(100),_jumps(1),_N(getN()),_hi(0),_current(0)
+    {
+        get_terminal_size(w,h);
+        _header = " [";
+        w -= _header.size() + 4;
+        _tail_max = std::to_string(_end).size()*2 + 6;
+        if(w > _tail_max)
+            w -= _tail_max;
+        else
+            _tail_max = -1;
+            
+        _n_hash = float(_end-_start)/(float)w;
+        
+        for(int i=0;i<_n_hash;i++)
+        {
+            _white_spc+=" ";
+        }
+
+    }
 
     pbar(int start, int end, int jumps = 1, std::string header=""):
-    _start(start), _end(end), _jumps(jumps), _header(header), _N(getN()), _current(start)
-    {}
+    _start(start), _end(end), _jumps(jumps), _header(header), _N(getN()), _current(start),_hi(start)
+    {
+        get_terminal_size(w,h);
+        _header += " [";
+        w -= _header.size() + 4 ;
+        w -= _tail_max = std::to_string(_end).size()*2 + 6;
+        if(w + 10  > _tail_max)
+            w -= _tail_max;
+        else
+            _tail_max = -1;
 
-    void update(int step = -1, std::string msg="")
+        _n_hash = float(_end-_start)/(float)w;
+
+        for(int i=0;i<w;i++)
+        {
+            _white_spc+=" ";
+        }
+    }
+
+    ~pbar()
+    {
+        some::MakePermanent(_N);
+    }
+
+    void update(int step = -1)
     {
         _current += (step==-1)?_jumps:step;
         static std::string end_str = "/"+std::to_string(_end);
-        std::string print, tail = std::to_string(_current) + "/" + std::to_string(_end);;
-        int w, h;
-        get_terminal_size(w,h);
-        if(w < msg.size())
+        std::string print = _header, tail = std::to_string(_current) + " / " + std::to_string(_end);
+        int _w = w; 
+
+        if(_w < 5)
         {
-            print = getWaiting();
-        }
-        else if (w < msg.size()+ _header.size() )
-        {
-            print = msg;
-        }
-        else if( w < msg.size()+ _header.size() + 4)
-        {
-            print = _header + " " + msg;
+            print += getWaiting() + " ]";
         }
         else
         {
-            print = _header + " [";
-            w-=_header.size();
-            w-=msg.size();
-            w-=4;
-            if(w < tail.size()+5)
-                tail = "";
-            else
-                w-=tail.size()+5;
 
-            const float n_hash = float(_end-_start)/(float)w;
-            int c = (_current-_start)/(float)(n_hash);
-            int i = 0;
-            for(; i<c ; i++)
+            int c = (_current-_start)/(float)(_n_hash);
+            for(; _hi<c ; _hi++)
             {
-                print+='#';
+                _hash+='#';
                 
             }
-            for(; i<c+1&& i < w ; i++)
-            {
-                print+=getWaiting();
-                
-            }
-            for(;i<w;i++)
-            {
-                print+=" ";
-            }
-            print += "] " + tail + " " + msg;
+            print += _hash + getWaiting();
+            print += _white_spc.substr(_hi);
+
+            print += "] ";
+            if(_tail_max != -1)
+                print += tail ;
         }
 
         some::_print(_N,print);
@@ -357,9 +400,13 @@ class pbar
     int _end;
     int _jumps;
     int _current;
-    std::string _header;
+    int _hi;
+    int _n_hash;
+    int _tail_max;
+    std::string _header, _hash, _white_spc;
     int _N;
-
+    int w, h;
+        
     static void get_terminal_size(int& width, int& height) {
     #if defined(_WIN32)
         CONSOLE_SCREEN_BUFFER_INFO csbi;
